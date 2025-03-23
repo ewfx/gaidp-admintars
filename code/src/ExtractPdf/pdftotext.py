@@ -5,6 +5,7 @@ from pdfminer.high_level import extract_text
 import pandas as pd
 import json
 import re
+import concurrent.futures
 
 # API Details
 API_KEY = "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"
@@ -109,6 +110,42 @@ def context_preserving_chunking(text, max_tokens=2000, overlap=300):
 
     return chunks
 
+def summarize_chunks(chunk_data):
+    """Sends a single chunk to DeepSeek API."""
+    formatted_prompt = PROMPT_TEMPLATE.format(
+        chunk_number=chunk_data["chunk_number"], total_chunks=chunk_data["total_chunks"],
+        document_context=chunk_data["document_context"],
+        previous_summaries=chunk_data["previous_summaries"]
+    )
+
+    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+    payload = {"model": "deepseek/deepseek-r1-zero:free", "prompt": formatted_prompt, "max_tokens": 1024}
+
+    response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
+    return response.json().get("choices", [{}])[0].get("text", "").strip() if response.status_code == 200 else f"Error: {response.json()}"
+
+def send_to_deepseek_parallel(user_query, document_chunks, max_workers=10):
+    """Processes document chunks in parallel to reduce processing time."""
+    total_chunks = len(document_chunks)
+    previous_summaries = []
+    final_responses = []
+
+    # Prepare chunk data for parallel execution
+    chunk_data_list = [
+        {
+            "chunk_number": i + 1,
+            "total_chunks": total_chunks,
+            "document_context": document_chunks[i],
+            "previous_summaries": "\n\n".join(previous_summaries[-3:])
+        }
+        for i in range(total_chunks)
+    ]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(process_chunk, chunk_data_list))
+
+    return "\n\n".join(results)
+
 # Step 3: Send Processed Text to DeepSeek-R1
 def send_to_deepseek(user_query, document_chunks):
     total_chunks = len(document_chunks)
@@ -140,9 +177,9 @@ def send_to_deepseek(user_query, document_chunks):
         }
 
         response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
-        answer = response.json().get("choices", [{}])[0].get("text", "").strip() if response.status_code == 200 else f"Error: {response.json()}"
+        answer = response.json() if response.status_code == 200 else f"Error: {response.json()}"
         print("#####################################################################################")
-        print(answer)
+        print("answer: ", answer)
         # Store the extracted summary
         previous_summaries.append(answer)
         final_responses.append(answer)
@@ -154,15 +191,17 @@ def send_to_deepseek(user_query, document_chunks):
 pdf_path = "../../../artifacts/arch/rules.pdf"  # Replace with actual PDF file path
 user_query = "Extract the rules from this document in a form which can be used to verify against a transactional dataset of a user"
 
-# Processing
-# Extract PDF text & tables
+# Step 1: Extract Text & Tables
 extracted_text, extracted_tables = extract_text_and_tables(pdf_path)
 
-# Generate structured chunks
-document_chunks = context_preserving_chunking(extracted_text, max_tokens=2000, overlap=300)
+# Step 2: Use Context-Preserving Chunking (Larger Size)
+optimized_chunks = context_preserving_chunking(extracted_text, max_tokens=10000, overlap=500)
 
-# Send to DeepSeek with memory of previous parts
-deepseek_response = send_to_deepseek(user_query, document_chunks)
+# Step 3: Summarize Chunks in Groups of 10
+optimized_chunks = summarize_chunks(optimized_chunks, batch_size=10)
+
+# Step 4: Send Chunks in Parallel
+deepseek_response = send_to_deepseek_parallel(user_query, optimized_chunks, max_workers=10)
 
 print("Final Extracted Compliance Rules:\n", deepseek_response)
 
