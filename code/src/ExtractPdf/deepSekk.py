@@ -1,11 +1,14 @@
+import PyPDF2
 import requests
 import json
 import base64
 import pandas as pd
 from typing import List, Dict, Optional
+from io import StringIO
+import re
 
 class FINRAAnalyzer:
-    def __init__(self, api_key: str, model: str = "deepseek/deepseek-r1-zero:free"):
+    def __init__(self, api_key: str, model: str = "cognitivecomputations/dolphin3.0-r1-mistral-24b:free"):
         """
         Initialize the FINRA document analyzer with API credentials
         
@@ -60,6 +63,56 @@ class FINRAAnalyzer:
         response.raise_for_status()
         return response.json()
     
+    def extract_text_from_pdf(self, pdf_path: str):
+        """
+        Extracts text from a PDF, including text in tables (as best as possible)
+        """
+        text = ""
+        
+        with open(pdf_path, 'rb') as file:
+            reader = PyPDF2.PdfReader(file)
+            
+            for page in reader.pages:
+                # Extract normal text
+                page_text = page.extract_text()
+                
+                # Try to extract table-like content by looking for patterns
+                # This is a simple approach - for complex tables consider camelot or pdfplumber
+                if page_text:
+                    # Clean up the text
+                    page_text = re.sub(r'\s+', ' ', page_text).strip()
+                    text += page_text + "\n\n"
+                    
+        return text
+
+    def chunk_text(self, text, max_chunk_size=3000):
+        """
+        Split text into chunks that fit within the context window,
+        trying to preserve paragraphs and logical sections
+        """
+        paragraphs = text.split('\n\n')
+        chunks = []
+        current_chunk = ""
+        
+        for para in paragraphs:
+            if len(current_chunk) + len(para) + 2 < max_chunk_size:  # +2 for the newlines
+                current_chunk += para + "\n\n"
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                    current_chunk = para + "\n\n"
+                else:
+                    # This paragraph is too long, split it arbitrarily
+                    chunks.append(para[:max_chunk_size])
+                    remaining = para[max_chunk_size:]
+                    if remaining:
+                        chunks.append(remaining)
+        
+        if current_chunk:
+            chunks.append(current_chunk)
+        
+        return chunks
+
     def extract_rules(self, document_path: str) -> Dict:
         """
         Extract financial rules from a FINRA document for anomaly detection
@@ -74,47 +127,78 @@ class FINRAAnalyzer:
         # encoded_doc = self._encode_document(document_path)
         
         # Prepare the API request
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a financial compliance expert analyzing a regulatory document. "
-                    "Analyze the provided document and extract all financial rules and requirements "
-                    "that could be used for anomaly detection in financial transactions or reporting. "
-                    "Pay special attention to numerical thresholds, reporting timelines, "
-                    "required procedures, and prohibited activities. "
-                    "For tables, extract the data in a structured format."
-                )
-            },
-            {
-                "role": "user",
-                "content": (
-                    "Please analyze this FINRA document and extract all financial rules and requirements "
-                    "that could be used to detect anomalies in financial operations. "
-                    "Include numerical thresholds, timing requirements, reporting obligations, "
-                    "and any other compliance rules. For tables, provide the data in a structured format."
-                )
-            }
-        ]
-        
-        files = [{
-            "name": "finra_document",
-            "type": "application/pdf",  # Adjust based on actual file type
-            "data": document_path
-        }]
-        
+        system_prompt = """You are a financial analyst expert. Your task is to extract and summarize key financial rules, 
+            regulations, policies, and important financial information from the provided text. 
+
+            Instructions:
+            1. Focus on extracting rules, policies, thresholds, limits, requirements, and compliance information.
+            2. Organize the information in a clear, structured manner.
+            3. Maintain context between different sections of the document.
+            4. For each rule, include the relevant context that explains its purpose or application.
+            5. If you encounter numerical values, percentages, or financial thresholds, pay special attention to them.
+            6. Output should be in Markdown format with clear headings and bullet points.
+            
+            Current extraction will be done in chunks. I'll provide you with the previous summary after each chunk to maintain continuity."""
+
+        text = self.extract_text_from_pdf(document_path)
+        text_chunks = self.chunk_text(text)
+
+        full_summary = ""
+        previous_context = ""
+
+        for i, chunk in enumerate(text_chunks):
+            print(f"Processing chunk {i+1}/{len(text_chunks)}...")
+            
+            user_prompt = f"""
+            Here is chunk {i+1} of the document:
+            {chunk}
+            
+            {f'Here is the summary from previous chunks for context:\n{previous_context}' if previous_context else 'This is the first chunk of the document.'}
+            
+            Please extract any new financial rules or information from this chunk, integrating it with the previous context if available.
+            """
+            
+            messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+
+            try: 
         # Call the API
-        response = self._call_openrouter_api(messages, files)
-        
+                response = self._call_openrouter_api(messages)
+                print("#"*50)
+                print(response)
+                chunk_summary = response['choices'][0]['message']['content']
+                full_summary += f"\n\n## Chunk {i+1} Results\n\n{chunk_summary}"
+                previous_context = chunk_summary
+            except Exception as e:
+                print(f"Error processing chunk {i+1}: {str(e)}")
+                continue
         # Process the response
+        consolidation_prompt = f"""
+            Here is the complete extracted financial information from all chunks:
+            {full_summary}
+            
+            Please consolidate this into a final, well-organized set of financial rules and policies:
+            - Remove any duplicates
+            - Organize by topic/category
+            - Ensure consistent formatting
+            - Add headings and subheadings as needed
+            - Include any important context for each rule
+            """
+        
+        messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": consolidation_prompt}
+            ]
+        
         try:
-            content = response['choices'][0]['message']['content']
-            if isinstance(content, str):
-                return json.loads(content)
-            return content
-        except (KeyError, json.JSONDecodeError):
-            # If response isn't JSON, return as text
-            return {"rules": content}
+            response = self._call_openrouter_api(messages)
+            final_result = response.json()['choices'][0]['message']['content']
+            return final_result
+        except Exception as e:
+            print(f"Error during final consolidation: {str(e)}")
+            return full_summary
 
     def detect_anomalies(self, transactions: List[Dict], finra_rules: Dict) -> List[Dict]:
         """

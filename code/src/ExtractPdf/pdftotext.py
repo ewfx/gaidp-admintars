@@ -16,7 +16,6 @@ DEEPSEEK_URL = "https://openrouter.ai/api/v1/completions"
 # ✅ Updated Prompt Template (Includes Tables)
 PROMPT_TEMPLATE = """
 You are a financial compliance expert analyzing a regulatory document.
-This is part {chunk_number} of {total_chunks} from a larger document.
 
 Use the provided context to extract key financial compliance rules.
 If rules refer to tables, reference them correctly. If context is incomplete, state it clearly.
