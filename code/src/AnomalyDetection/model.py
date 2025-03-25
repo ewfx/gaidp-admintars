@@ -17,11 +17,11 @@ with open("../ExtractPdf/transactions.json", "r") as file:
 
 transactions = transactions_data.get("corporate_loans", [])
 
-BATCH_SIZE = 10  
+BATCH_SIZE = 5  
 
 def process_batch(batch):
     prompt = f"""
-    You are an AI-powered anomaly detection system analyzing financial transactions against FINRA compliance rules.
+    You are an AI-powered anomaly detection system analyzing financial transactions against FINRA compliance rules when list of transactions are given.
 
     ### **FINRA Rules:**
     {json.dumps(finra_rules, indent=2)}
@@ -56,7 +56,6 @@ def process_batch(batch):
 
     try:
         response = requests.post(API_URL, json=payload, headers=headers)
-        response.raise_for_status()  # Raise an error for HTTP issues
         result = response.json()
         output_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
 
@@ -64,7 +63,6 @@ def process_batch(batch):
             print(output_text)
             return output_text  # Ensure the output is valid JSON
         except json.JSONDecodeError:
-            print("Error: Invalid JSON response from API")
             return {"error": "Invalid response from LLM"}
     except requests.RequestException as e:
         print(f"Error: API request failed - {e}")
@@ -73,10 +71,9 @@ def process_batch(batch):
 # Process transactions in batches
 all_anomalies = []
 for i in range(0, len(transactions), BATCH_SIZE):
-    batch = transactions[i:i + BATCH_SIZE]
-    # print(f"Processing batch {i // BATCH_SIZE + 1}: {batch}")  # Debugging log
+    batch = transactions[i:i + BATCH_SIZE]  # Get the current batch of 5 transactions
+    print(f"Transaction batch {i // BATCH_SIZE + 1}:", batch)
     anomalies = process_batch(batch)
-    # print("API response:", anomalies)  # Debugging log
     all_anomalies.append(anomalies)
 
 # Save anomalies to a JSON file
