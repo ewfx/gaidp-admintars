@@ -1,3 +1,4 @@
+import os
 import requests
 import pdfplumber
 import tiktoken
