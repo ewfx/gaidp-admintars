@@ -56,11 +56,10 @@ class FINRAAnalyzer:
             payload["files"] = files
         
         response = requests.post(self.base_url, headers=headers, json=payload)
-        print("Deepseek response:", response.json())
+        # print("Deepseek response:", response.json())
         response.raise_for_status()
         return response.json()
     
-
     def extract_rules(self, document_path: str) -> Dict:
         """
         Extract financial rules from a FINRA document for anomaly detection
@@ -79,7 +78,7 @@ class FINRAAnalyzer:
             {
                 "role": "system",
                 "content": (
-                    "You are a financial compliance expert specializing in FINRA regulations. "
+                    "You are a financial compliance expert analyzing a regulatory document. "
                     "Analyze the provided document and extract all financial rules and requirements "
                     "that could be used for anomaly detection in financial transactions or reporting. "
                     "Pay special attention to numerical thresholds, reporting timelines, "
@@ -116,103 +115,6 @@ class FINRAAnalyzer:
         except (KeyError, json.JSONDecodeError):
             # If response isn't JSON, return as text
             return {"rules": content}
-    
-    # def detect_anomalies(self, transaction_data: List[Dict], finra_rules: Dict) -> List[Dict]:
-    #     """
-    #     Apply extracted FINRA rules to transaction data to detect anomalies using LLM analysis
-        
-    #     Args:
-    #         transaction_data: DataFrame containing financial transactions
-    #         finra_rules: Dictionary of rules extracted from FINRA documents
-            
-    #     Returns:
-    #         List of dictionaries with anomaly detection results for each transaction
-    #     """
-    #     results = []
-        
-    #     # Convert DataFrame to list of dictionaries for JSON serialization
-    #     # transactions = transaction_data.to_dict('records')
-        
-    #     # Process transactions in batches to avoid overwhelming the API
-    #     print("transaction data:", transaction_data)
-    #     batch_size = 5  # Adjust based on your API limits
-    #     for i in range(0, len(transaction_data), batch_size):
-    #         batch = transaction_data[i:i + batch_size]
-            
-    #         prompt = f"""
-    #         You are an AI-powered anomaly detection system analyzing financial transactions against FINRA compliance rules when list of transactions are given.
-
-    #         ### **FINRA Rules:**
-    #         {json.dumps(finra_rules, indent=2)}
-
-    #         ### **Transactions to Analyze:**
-    #         {json.dumps(batch, indent=2)}
-
-    #         For each transaction, determine if any field violates any FINRA rules. If it does, return:
-    #         {{
-    #             "transaction_id": "<ID>",
-    #             "status": "ANOMALY",
-    #             "reason": List["<violation description>"]
-    #         }}
-
-    #         If the transaction is normal, return:
-    #         {{
-    #             "transaction_id": "<ID>",
-    #             "status": "NORMAL"
-    #         }}
-
-    #         Return only valid JSON output as a list of these objects.
-    #         """
-
-    #         payload = {
-    #             "model": self.model,
-    #             "messages": [
-    #                 {"role": "system", "content": "You are a financial anomaly detection AI."},
-    #                 {"role": "user", "content": prompt}
-    #             ],
-    #             "temperature": 0.0
-    #         }
-
-    #         try:
-    #             response = self._call_openrouter_api(payload['messages'])
-    #             output_text = response.json()
-    #             print("Anomaly output", output_text)
-                
-    #             try:
-    #                 batch_results = json.loads(output_text)
-    #                 if isinstance(batch_results, list):
-    #                     results.extend(batch_results)
-    #                 else:
-    #                     # Handle single result case
-    #                     results.append(batch_results)
-    #             except json.JSONDecodeError:
-    #                 print(f"Warning: Could not parse LLM response for batch {i//batch_size}")
-    #                 # Mark all transactions in this batch as errored
-    #                 for tx in batch:
-    #                     results.append({
-    #                         "transaction_id": tx.get('id', 'unknown'),
-    #                         "status": "ERROR",
-    #                         "reason": ["Could not parse analysis result"]
-    #                     })
-                        
-    #         except Exception as e:
-    #             print(f"Error processing batch {i//batch_size}: {str(e)}")
-    #             # Mark all transactions in this batch as errored
-    #             for tx in batch:
-    #                 results.append({
-    #                     "transaction_id": tx.get('id', 'unknown'),
-    #                     "status": "ERROR",
-    #                     "reason": [f"Analysis failed: {str(e)}"]
-    #                 })
-    
-    #     # Merge results back with original transaction data
-    #     if 'id' in transaction_data.columns:
-    #         result_df = transaction_data.copy()
-    #         result_df['analysis_result'] = results
-    #         return result_df
-    #     else:
-    #         # If no ID column, just return the results list
-    #         return results
 
     def detect_anomalies(self, transactions: List[Dict], finra_rules: Dict) -> List[Dict]:
         """
@@ -268,37 +170,17 @@ class FINRAAnalyzer:
         ]
         
         try:
-            # Call the API
             response = self._call_openrouter_api(messages)
-            
-            # Get the content from the response
-            content = response['choices'][0]['message']['content']
-            
-            # Parse the JSON content
-            if isinstance(content, str):
-                result = json.loads(content)
-            else:
-                result = content
-            
-            # Validate and normalize the response format
-            if "results" in result:
-                return result["results"]
-            elif isinstance(result, list):
-                return result
-            else:
-                raise ValueError("Unexpected response format from API")
-                
-        except Exception as e:
-            # Return error status for all transactions if analysis fails
-            error_message = f"Anomaly detection failed: {str(e)}"
-            return [
-                {
-                    "transaction_id": tx.get("transaction_id", "unknown"),
-                    "status": "ERROR",
-                    "reasons": [error_message]
-                }
-                for tx in transactions
-            ]
+            result = response
+            output_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+            try:
+                return output_text  # Ensure the output is valid JSON
+            except json.JSONDecodeError:
+                return {"error": "Invalid response from LLM"}
+        except requests.RequestException as e:
+            print(f"Error: API request failed - {e}")
+            return {"error": "API request failed"}
 
 
 # Example usage
