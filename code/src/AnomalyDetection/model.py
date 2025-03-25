@@ -61,7 +61,8 @@ def process_batch(batch):
         output_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
 
         try:
-            return json.loads(output_text)  # Ensure the output is valid JSON
+            print(output_text)
+            return output_text  # Ensure the output is valid JSON
         except json.JSONDecodeError:
             print("Error: Invalid JSON response from API")
             return {"error": "Invalid response from LLM"}
@@ -73,13 +74,10 @@ def process_batch(batch):
 all_anomalies = []
 for i in range(0, len(transactions), BATCH_SIZE):
     batch = transactions[i:i + BATCH_SIZE]
-    print(f"Processing batch {i // BATCH_SIZE + 1}: {batch}")  # Debugging log
+    # print(f"Processing batch {i // BATCH_SIZE + 1}: {batch}")  # Debugging log
     anomalies = process_batch(batch)
-    print("API response:", anomalies)  # Debugging log
-    if isinstance(anomalies, list):
-        all_anomalies.extend(anomalies)
-    else:
-        print(f"Error: Unexpected response format for batch {i // BATCH_SIZE + 1}")
+    # print("API response:", anomalies)  # Debugging log
+    all_anomalies.append(anomalies)
 
 # Save anomalies to a JSON file
 with open("anomalies.json", "w") as file:
