@@ -36,7 +36,7 @@ The financial industry is governed by complex regulations. Ensuring compliance w
 
 ## 🛠 How We Built It
 
-- Utilized **DeepSeek LLM API** for rule extraction
+- Utilized **DeepSeek V3 0324 (free) API** for rule extraction
 - Used **PyPDF2 library** for processing structured table data and unstructured text data from PDFs and then switched to Pandas to extract data.
 - Sent the processed data to **DeepSeek** model to extract structured data rules along with a specific prompt.
 - Passed the generated rules along with sample transactional data back to **DeepSeek** API to validate.
