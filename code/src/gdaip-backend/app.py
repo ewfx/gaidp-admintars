@@ -31,7 +31,7 @@ app.add_middleware(
 )
 
 # Configuration
-DEEPSEEK_API_KEY = "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"
+DEEPSEEK_API_KEY = "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"
 
 # Initialize components with DeepSeek
 doc_processor = DocumentProcessor(DEEPSEEK_API_KEY)
