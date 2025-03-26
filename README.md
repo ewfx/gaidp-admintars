@@ -99,10 +99,11 @@ Backend APIs:
    python app.py
    ```
 6. View extracted rules in JSON format and validation reports in the output directory.
+7. Generate an API key from https://openrouter.ai/, by selecting **DeepSeek V3 0324 (free) API** LLM. (Keys passed through commit will be automatically disabled)
 
 ## 🏗 Tech Stack
 
-- **DeepSeek LLM API** for rule extraction
+- **DeepSeek V3 0324 (free) API** for rule extraction
 - **PyPDF2** for PDF data processing (initially) Numpy and Pandas for Data Extraction
 - **Python** for backend processing
 - **JSON** for structured rule representation
