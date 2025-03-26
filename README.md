@@ -59,7 +59,7 @@ UI:
 1. Clone the repository:
    ```sh
    git clone https://github.com/ewfx/gaidp-admintars.git
-   cd gaidp-admintars
+   cd gaidp-admintars/code/src/gdaip-ui
    ```
 2. Create a virtual environment and activate it:
    ```sh
@@ -68,21 +68,19 @@ UI:
    ```
 3. Install dependencies:
    ```sh
-   pip install -r requirements.txt
+   npm i
    ```
-4. Place the regulatory PDF file and transactional dataset in the input directory.
-5. Run the main script:
+4. Run the main script:
    ```sh
-   python main.py
+   npm run start
    ```
-6. View extracted rules in JSON format and validation reports in the output directory.
 
 Backend APIs:
 
 1. Clone the repository:
    ```sh
    git clone https://github.com/ewfx/gaidp-admintars.git
-   cd gaidp-admintars
+   cd gaidp-admintars/code/src/gdaip-backend
    ```
 2. Create a virtual environment and activate it:
    ```sh
@@ -96,16 +94,17 @@ Backend APIs:
 4. Place the regulatory PDF file and transactional dataset in the input directory.
 5. Run the main script:
    ```sh
-   python main.py
+   python app.py
    ```
 6. View extracted rules in JSON format and validation reports in the output directory.
 
 ## 🏗 Tech Stack
 
 - **DeepSeek LLM API** for rule extraction
-- **PyPDF2** for PDF data processing
+- **PyPDF2** for PDF data processing (initially) Numpy and Pandas for Data Extraction
 - **Python** for backend processing
 - **JSON** for structured rule representation
+- **FastAPI** for apis
 - ReactJS, MaterialUI for building User Interface components
 
 ## 👥 Team
@@ -114,6 +113,7 @@ Backend APIs:
 - Sharon Jain
 - Nagachandra Vamsi Hebbare
 - Satya Rohit Devalla
+- Anil Kalwakuntla
 
 ## 🤝 Contribution
 
