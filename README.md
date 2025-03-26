@@ -18,8 +18,8 @@ GenAi Data Profiling is an AI-powered solution that extracts regulatory rules fr
 
 ## 🎥 Demo
 
-- [Live Demo](#) (if applicable)
-- [Video Demo](#) (if applicable)
+- [Entire Video Demo](https://photos.app.goo.gl/38qnWTWLLfZGubeCA) (if applicable)
+- [Short Video Demo](arch/demo) (if applicable)
 - 📸 Screenshots:
 
 ## 💡 Inspiration
