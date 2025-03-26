@@ -31,7 +31,8 @@ class DocumentProcessor:
         JSON Output:
         """
         
-        result = self.llm_adapter.generate(prompt, temperature=0.3)
+        result = self.llm_adapter.generate(prompt, max_tokens=3000, temperature=0.3)
+        print("########################################")
         print(f"Extracted info: {result}")
         try:
             # Clean the JSON output from LLM

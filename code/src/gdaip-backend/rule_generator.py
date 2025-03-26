@@ -33,7 +33,7 @@ class RuleGenerator:
             {self._safe_json_dumps(requirements)}
             """
         
-        result = self.llm_adapter.generate(prompt, temperature=0.3)
+        result = self.llm_adapter.generate(prompt, max_tokens=3000, temperature=0.3)
         print("In rules_generator.py")
         print("#################################################")
         return self._parse_llm_response(result)
@@ -148,7 +148,7 @@ class RuleGenerator:
         
         print("In rules_generator.py, generate_executable_code")
         print("#################################################")
-        result = self.llm_adapter.generate(prompt, temperature=0.1)
+        result = self.llm_adapter.generate(prompt, max_tokens=3000, temperature=0.1)
         return self._clean_code_output(result)
 
     def _clean_code_output(self, code: str) -> str:

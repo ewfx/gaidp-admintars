@@ -11,6 +11,340 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import * as api from './api';
 
+const mockRules = [
+  {
+      "description": "Must include loans and leases as specified in FR Y-9C, Schedule HC-C, items 6.c and 10.a.",
+      "fields": [
+          "loan_type",
+          "lease_type"
+      ],
+      "validation_logic": "loan_type in ['international_auto_loan'] and lease_type in ['international_auto_lease']",
+      "parameters": {}
+  },
+  {
+      "description": "Must include repossessed loans as specified in FR Y-9C, Schedule HC-F, item 6.",
+      "fields": [
+          "repossessed_loans"
+      ],
+      "validation_logic": "repossessed_loans is not None",
+      "parameters": {}
+  },
+  {
+      "description": "Must exclude loans originated by third parties and only serviced by the BHC, IHC, or SLHC.",
+      "fields": [
+          "loan_originator"
+      ],
+      "validation_logic": "loan_originator in ['BHC', 'IHC', 'SLHC']",
+      "parameters": {}
+  },
+  {
+      "description": "Must exclude loans or leases held for sale or held for investment and measured at fair value.",
+      "fields": [
+          "loan_holding_type"
+      ],
+      "validation_logic": "loan_holding_type == 'held_for_investment_at_amortized_cost'",
+      "parameters": {}
+  },
+  {
+      "description": "Must divide the portfolio into 3*3*6*4 = 216 segments based on product type, credit score, delinquency status, and geography.",
+      "fields": [
+          "product_type",
+          "credit_score",
+          "delinquency_status",
+          "geography"
+      ],
+      "validation_logic": "len(set(zip(product_type, credit_score, delinquency_status, geography))) == 216",
+      "parameters": {}
+  },
+  {
+      "description": "Segment ID must be based on the segment ID positions and attribute codes listed in Table A.1.a.",
+      "fields": [
+          "SEGMENT_ID"
+      ],
+      "validation_logic": "len(str(SEGMENT_ID)) == 8 and SEGMENT_ID.isdigit()",
+      "parameters": {}
+  },
+  {
+      "description": "Must include all specified fields for each row of data.",
+      "fields": [
+          "BHC_NAME",
+          "RSSD_ID",
+          "REPORTING_MONTH",
+          "PORTFOLIO_ID",
+          "SEGMENT_ID"
+      ],
+      "validation_logic": "all(field is not None for field in [BHC_NAME, RSSD_ID, REPORTING_MONTH, PORTFOLIO_ID, SEGMENT_ID])",
+      "parameters": {}
+  },
+  {
+      "description": "Must use 'IntAuto' as the portfolio ID.",
+      "fields": [
+          "PORTFOLIO_ID"
+      ],
+      "validation_logic": "PORTFOLIO_ID == 'IntAuto'",
+      "parameters": {}
+  },
+  {
+      "description": "All dollar amounts must be reported in millions.",
+      "fields": [
+          "dollar_amounts"
+      ],
+      "validation_logic": "all(isinstance(amount, (int, float)) for amount in dollar_amounts)",
+      "parameters": {}
+  },
+  {
+      "description": "Must calculate account weighted averages for PD, LGD, ELGD, and RWA.",
+      "fields": [
+          "PD",
+          "LGD",
+          "ELGD",
+          "RWA"
+      ],
+      "validation_logic": "all(isinstance(param, (int, float)) for param in [PD, LGD, ELGD, RWA])",
+      "parameters": {
+          "exception": "If Basel data are not refreshed monthly, use the appropriate Basel data from the prior quarter."
+      }
+  },
+  {
+      "description": "Must use codes '01', '02', '03' for the respective product types.",
+      "fields": [
+          "product_type"
+      ],
+      "validation_logic": "product_type in ['01', '02', '03']",
+      "parameters": {}
+  },
+  {
+      "description": "Must use codes '01', '02', '03' for the respective score ranges.",
+      "fields": [
+          "credit_score"
+      ],
+      "validation_logic": "credit_score in ['01', '02', '03']",
+      "parameters": {
+          "exception": "If underwriting was based on an internal score, map it to an industry standard credit score."
+      }
+  },
+  {
+      "description": "Must use codes '01' to '06' for the respective delinquency statuses.",
+      "fields": [
+          "delinquency_status"
+      ],
+      "validation_logic": "delinquency_status in ['01', '02', '03', '04', '05', '06']",
+      "parameters": {}
+  },
+  {
+      "description": "Must use codes '01' to '04' for the respective regions.",
+      "fields": [
+          "geography"
+      ],
+      "validation_logic": "geography in ['01', '02', '03', '04']",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the total number of accounts.",
+      "fields": [
+          "#_Accounts"
+      ],
+      "validation_logic": "isinstance(#_Accounts, int) and #_Accounts >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the total unpaid principal balance.",
+      "fields": [
+          "$Outstandings"
+      ],
+      "validation_logic": "isinstance($Outstandings, (int, float)) and $Outstandings >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the total number of new accounts.",
+      "fields": [
+          "#New_accounts"
+      ],
+      "validation_logic": "isinstance(#New_accounts, int) and #New_accounts >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the total dollar amount of new accounts.",
+      "fields": [
+          "$New_accounts"
+      ],
+      "validation_logic": "isinstance($New_accounts, (int, float)) and $New_accounts >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance for 'car/van'.",
+      "fields": [
+          "$Vehicle_type_car/van"
+      ],
+      "validation_logic": "isinstance($Vehicle_type_car/van, (int, float)) and $Vehicle_type_car/van >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance for 'SUV/truck'.",
+      "fields": [
+          "$Vehicle_type_SUV/truck"
+      ],
+      "validation_logic": "isinstance($Vehicle_type_SUV/truck, (int, float)) and $Vehicle_type_SUV/truck >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance for 'sport/luxury/convertible'.",
+      "fields": [
+          "$Vehicle_type_sport/luxury/convertible"
+      ],
+      "validation_logic": "isinstance($Vehicle_type_sport/luxury/convertible, (int, float)) and $Vehicle_type_sport/luxury/convertible >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance for 'unknown'.",
+      "fields": [
+          "$Vehicle_type_unknown"
+      ],
+      "validation_logic": "isinstance($Vehicle_type_unknown, (int, float)) and $Vehicle_type_unknown >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance of repossessed loans.",
+      "fields": [
+          "$Repossession"
+      ],
+      "validation_logic": "isinstance($Repossession, (int, float)) and $Repossession >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance of newly repossessed loans.",
+      "fields": [
+          "$Current_month_repossession"
+      ],
+      "validation_logic": "isinstance($Current_month_repossession, (int, float)) and $Current_month_repossession >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the dollar amount of write-downs.",
+      "fields": [
+          "$Gross_contractual_charge-offs"
+      ],
+      "validation_logic": "isinstance($Gross_contractual_charge-offs, (int, float)) and $Gross_contractual_charge-offs >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the dollar amount of bankruptcy charge-offs.",
+      "fields": [
+          "$Bankruptcy_charge-offs"
+      ],
+      "validation_logic": "isinstance($Bankruptcy_charge-offs, (int, float)) and $Bankruptcy_charge-offs >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the dollar amount of recoveries.",
+      "fields": [
+          "$Recoveries"
+      ],
+      "validation_logic": "isinstance($Recoveries, (int, float)) and $Recoveries >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the net charge-offs.",
+      "fields": [
+          "$Net_charge-offs"
+      ],
+      "validation_logic": "isinstance($Net_charge-offs, (int, float)) and $Net_charge-offs >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must provide the adjustment factor and an explanation for the difference.",
+      "fields": [
+          "Adjustment_factor"
+      ],
+      "validation_logic": "isinstance(Adjustment_factor, (int, float))",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance for accounts ever 30+ DPD.",
+      "fields": [
+          "$Ever_30DPD_in_the_last_12_months"
+      ],
+      "validation_logic": "isinstance($Ever_30DPD_in_the_last_12_months, (int, float)) and $Ever_30DPD_in_the_last_12_months >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the unpaid principal balance for accounts ever 60+ DPD.",
+      "fields": [
+          "$Ever_60DPD_in_the_last_12_months"
+      ],
+      "validation_logic": "isinstance($Ever_60DPD_in_the_last_12_months, (int, float)) and $Ever_60DPD_in_the_last_12_months >= 0",
+      "parameters": {}
+  },
+  {
+      "description": "Must report the projected value for leased vehicles.",
+      "fields": [
+          "Projected_value"
+      ],
+      "validation_logic": "isinstance(Projected_value, (int, float)) and Projected_value >= 0",
+      "parameters": {
+          "exception": "Only applicable to leased vehicles."
+      }
+  },
+  {
+      "description": "Must report the sales proceeds for leased vehicles.",
+      "fields": [
+          "Actual_sale_proceeds"
+      ],
+      "validation_logic": "isinstance(Actual_sale_proceeds, (int, float)) and Actual_sale_proceeds >= 0",
+      "parameters": {
+          "exception": "Only applicable to leased vehicles."
+      }
+  },
+  {
+      "description": "Must calculate the account weighted average PD.",
+      "fields": [
+          "PD"
+      ],
+      "validation_logic": "isinstance(PD, (int, float)) and 0 <= PD <= 1",
+      "parameters": {
+          "exception": "Only applicable to advanced approaches reporting banks."
+      }
+  },
+  {
+      "description": "Must calculate the account weighted average LGD.",
+      "fields": [
+          "LGD"
+      ],
+      "validation_logic": "isinstance(LGD, (int, float)) and 0 <= LGD <= 1",
+      "parameters": {
+          "exception": "Only applicable to advanced approaches reporting banks."
+      }
+  },
+  {
+      "description": "Must calculate the account weighted average ELGD.",
+      "fields": [
+          "ELGD"
+      ],
+      "validation_logic": "isinstance(ELGD, (int, float)) and 0 <= ELGD <= 1",
+      "parameters": {
+          "exception": "Only applicable to advanced approaches reporting banks."
+      }
+  },
+  {
+      "description": "Must calculate the account weighted average RWA.",
+      "fields": [
+          "RWA"
+      ],
+      "validation_logic": "isinstance(RWA, (int, float)) and RWA >= 0",
+      "parameters": {
+          "exception": "Only applicable to banks subject to the advanced approaches rule."
+      }
+  },
+  {
+      "description": "Must reflect the current position, new business activity, and behavioral assumptions.",
+      "fields": [
+          "Weighted_Average_Life_of_Loans"
+      ],
+      "validation_logic": "isinstance(Weighted_Average_Life_of_Loans, (int, float)) and Weighted_Average_Life_of_Loans >= 0",
+      "parameters": {}
+  }
+];
+
 const RegulatoryProfilingUI = () => {
   // State management
   const [activeTab, setActiveTab] = useState('upload');
@@ -50,7 +384,7 @@ const RegulatoryProfilingUI = () => {
     }
   };
 
-  const processRegulations = async () => {
+  const processRegulations2 = async () => {
     if (!regulatoryText && !file) {
       setSnackbar({ open: true, message: 'Please upload a file or enter text', severity: 'warning' });
       return;
@@ -59,6 +393,7 @@ const RegulatoryProfilingUI = () => {
     setIsProcessing(true);
     try {
       const result = await api.processRegulations(regulatoryText);
+      console.log(result.rules.rules);
       setRules(result.rules.rules);
       setValidationCode(result.validation_code);
       
@@ -109,44 +444,56 @@ const RegulatoryProfilingUI = () => {
     };
 
     // Modify the refreshValidation function to use uploaded data
-    const refreshValidation = async () => {
-        if (rules.length === 0) {
-          setSnackbar({ 
-            open: true, 
-            message: 'No rules available. Process regulations first', 
-            severity: 'warning' 
-          });
-          return;
-        }
-        
-        setIsProcessing(true);
-        try {
-          const dataToValidate = transactionData || sampleData;
-          const validationResult = await api.validateData(rules, dataToValidate);
-          
-          setAnomalies(validationResult.validation_results);
-          setRiskScores(validationResult.risk_assessment);
-          setRemediationActions(validationResult.remediation_actions);
-          
-          setSnackbar({ 
-            open: true, 
-            message: transactionData 
-              ? 'Validation completed using uploaded data' 
-              : 'Validation completed using sample data',
-            severity: 'success' 
-          });
-          
-          setActiveTab('anomalies'); // Switch to show results
-        } catch (error) {
-          setSnackbar({ 
-            open: true, 
-            message: `Validation failed: ${error.message}`, 
-            severity: 'error' 
-          });
-        } finally {
-          setIsProcessing(false);
-        }
-    };
+  const refreshValidation = async () => {
+    if (rules.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'No rules available. Process regulations first',
+        severity: 'warning',
+      });
+      return;
+    }
+    console.log("rules", rules.rules);
+    setIsProcessing(true);
+    try {
+      // Prepare the payload
+      // const payload = {
+      const mappedRules = rules.map((rule) => ({
+        description: rule.description,
+        fields: rule.fields,
+        parameters: rule.parameters,
+        validation_logic: rule.validation_logic,
+      }));
+      const data = transactionData || sampleData;
+      // };
+  
+      // Send the payload to the validateData API
+      const validationResult = await api.validateData(mappedRules, data);
+  
+      // Handle the response
+      setAnomalies(validationResult.validation_results);
+      setRiskScores(validationResult.risk_assessment);
+      setRemediationActions(validationResult.remediation_actions);
+  
+      setSnackbar({
+        open: true,
+        message: transactionData
+          ? 'Validation completed using uploaded data'
+          : 'Validation completed using sample data',
+        severity: 'success',
+      });
+  
+      setActiveTab('anomalies'); // Switch to show results
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: `Validation failed: ${error.message}`,
+        severity: 'error',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!userMessage.trim()) return;
@@ -178,7 +525,7 @@ const RegulatoryProfilingUI = () => {
       setIsProcessing(false);
     }
   };
-
+  console.log("rulesssssssssssssssss: ", rules);
   const downloadCode = () => {
     if (!validationCode) {
       setSnackbar({ open: true, message: 'No validation code generated yet', severity: 'warning' });
@@ -192,6 +539,10 @@ const RegulatoryProfilingUI = () => {
     if (score > 0.5) return '#ff9800'; // Medium risk
     return '#4caf50'; // Low risk
   };
+
+  useEffect(() => {
+    console.log('Rules state updated:', rules);
+  }, [rules]);
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f5f7fa' }}>
@@ -291,7 +642,7 @@ const RegulatoryProfilingUI = () => {
             <Button
               variant="contained"
               color="primary"
-              onClick={processRegulations}
+              onClick={processRegulations2}
               disabled={isProcessing || (!regulatoryText && !file)}
               startIcon={isProcessing ? <CircularProgress size={20} /> : null}
             >
@@ -305,13 +656,6 @@ const RegulatoryProfilingUI = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h5">Generated Profiling Rules</Typography>
               <Box>
-                <Chip 
-                  label="Sample Data" 
-                  color="info" 
-                  variant="outlined"
-                  size="small"
-                  sx={{ mr: 2 }}
-                />
                 <Button
                   variant="outlined"
                   startIcon={<Refresh />}
@@ -324,65 +668,42 @@ const RegulatoryProfilingUI = () => {
             </Box>
             
             {rules.length > 0 ? (
-              <DataGrid
-                rows={rules}
-                columns={[
-                  { 
-                    field: 'description', 
-                    headerName: 'Rule', 
-                    flex: 2,
-                    renderCell: (params) => (
-                      <Tooltip title={params.value} placement="top">
-                        <span>{params.value}</span>
-                      </Tooltip>
-                    )
-                  },
-                  { 
-                    field: 'fields', 
-                    headerName: 'Fields', 
-                    flex: 1, 
-                    valueGetter: (params) => params.value?.join(', ') || 'N/A',
-                    renderCell: (params) => (
-                      <Chip 
-                        label={params.value} 
-                        size="small" 
-                        variant="outlined"
-                      />
-                    )
-                  },
-                  { 
-                    field: 'status', 
-                    headerName: 'Status', 
-                    width: 120,
-                    renderCell: (params) => (
-                      <Chip 
-                        label={params.value || 'active'} 
-                        color={(!params.value || params.value === 'active') ? 'success' : 'warning'} 
-                        size="small" 
-                      />
-                    )
-                  }
-                ]}
-                pageSize={10}
-                rowsPerPageOptions={[10]}
-                autoHeight
-                sx={{ 
-                  mb: 3,
-                  '& .MuiDataGrid-cell': {
-                    borderBottom: '1px solid #f0f0f0',
-                  }
-                }}
-                getRowId={(row) => row.id}
-              />
+              <Box sx={{ overflow: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f5f5f5' }}>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Rule</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Fields</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Parameters</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Validation Logic</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rules.map((rule, index) => (
+                      <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '8px' }}>{rule.description}</td>
+                        <td style={{ padding: '8px' }}>{rule.fields.join(', ')}</td>
+                        <td style={{ padding: '8px' }}>
+                          {rule.parameters && Object.keys(rule.parameters).length > 0 
+                            ? JSON.stringify(rule.parameters) 
+                            : 'None'}
+                        </td>
+                        <td style={{ padding: '8px' }}>{rule.validation_logic}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
             ) : (
               <Alert severity="info" sx={{ mb: 3 }}>
                 No rules generated yet. Upload regulatory documents to generate profiling rules.
               </Alert>
             )}
-            
-            <Alert severity="info" sx={{ mb: 2 }}>
-              These are sample rules. Process your regulations to generate custom rules.
-            </Alert>
+            { rules.length <=0 && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                These are sample rules. Process your regulations to generate custom rules.
+              </Alert>
+            )}
             
             <Button
               variant="outlined"
@@ -395,108 +716,120 @@ const RegulatoryProfilingUI = () => {
         )}
 
         {activeTab === 'anomalies' && (
-            <Paper sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h5">Anomaly Detection</Typography>
-                <Box display="flex" alignItems="center" gap={2}>
-                    {/* Upload Button */}
-                    <Button
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5">Anomaly Detection</Typography>
+              <Box display="flex" alignItems="center" gap={2}>
+                {/* Upload Button */}
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<FileUpload />}
+                  disabled={isProcessing}
+                  size="small"
+                >
+                  Upload Data
+                  <input 
+                    type="file" 
+                    hidden 
+                    onChange={handleTransactionUpload} 
+                    accept=".csv,.xlsx,.xls" 
+                  />
+                </Button>
+                
+                {/* Current Dataset Indicator */}
+                {transactionFile ? (
+                  <Chip 
+                    label={`Using: ${transactionFile.name}`}
+                    color="success"
                     variant="outlined"
-                    component="label"
-                    startIcon={<FileUpload />}
-                    disabled={isProcessing}
-                    size="small"
-                    >
-                    Upload Data
-                    <input 
-                        type="file" 
-                        hidden 
-                        onChange={handleTransactionUpload} 
-                        accept=".csv,.xlsx,.xls" 
-                    />
-                    </Button>
-                    
-                    {/* Current Dataset Indicator */}
-                    {transactionFile ? (
-                    <Chip 
-                        label={`Using: ${transactionFile.name}`}
-                        color="success"
-                        variant="outlined"
-                        onDelete={() => {
-                        setTransactionFile(null);
-                        setTransactionData(null);
-                        }}
-                    />
-                    ) : (
-                    <Chip 
-                        label="Using: Sample Data" 
-                        color="info" 
-                        variant="outlined"
-                    />
-                    )}
-                    
-                    {/* Validate Button */}
-                    <Button
-                    variant="contained"
-                    startIcon={<GppGood />}
-                    onClick={refreshValidation}
-                    disabled={isProcessing || rules.length === 0}
-                    >
-                    Validate
-                    </Button>
-                </Box>
+                    onDelete={() => {
+                      setTransactionFile(null);
+                      setTransactionData(null);
+                    }}
+                  />
+                ) : (
+                  <Chip 
+                    label="Using: Sample Data" 
+                    color="info" 
+                    variant="outlined"
+                  />
+                )}
+                
+                {/* Validate Button */}
+                <Button
+                  variant="contained"
+                  startIcon={<GppGood />}
+                  onClick={refreshValidation}
+                  disabled={isProcessing || rules.length === 0}
+                >
+                  Validate
+                </Button>
+              </Box>
             </Box>
             
             {riskScores.length > 0 ? (
               <>
-                <DataGrid
-                  rows={riskScores}
-                  columns={[
-                    { field: 'Customer_ID', headerName: 'Customer ID', width: 120 },
-                    { field: 'Amount', headerName: 'Amount', width: 100 },
-                    { field: 'Currency', headerName: 'Currency', width: 100 },
-                    { field: 'Country', headerName: 'Country', width: 120 },
-                    { 
-                      field: 'risk_score', 
-                      headerName: 'Risk Score', 
-                      width: 150,
-                      renderCell: (params) => (
-                        <Box sx={{ 
-                          width: '100%', 
-                          bgcolor: '#e0e0e0', 
-                          borderRadius: 1,
-                          overflow: 'hidden'
-                        }}>
-                          <Box sx={{ 
-                            width: `${Math.min(params.value * 100, 100)}%`,
-                            bgcolor: getRiskColor(params.value),
-                            height: '100%',
-                            textAlign: 'center',
-                            color: 'white',
-                            fontSize: '0.75rem'
-                          }}>
-                            {params.value.toFixed(2)}
-                          </Box>
-                        </Box>
-                      )
-                    }
-                  ]}
-                  pageSize={10}
-                  rowsPerPageOptions={[10]}
-                  autoHeight
-                  sx={{ mb: 3 }}
-                  getRowId={(row) => row.id}
-                />
+                <Typography variant="h6" gutterBottom>
+                  Risk Assessment Results
+                  {transactionFile ? null : (
+                    <Chip 
+                      label="Sample Data" 
+                      color="info" 
+                      variant="outlined"
+                      size="small"
+                      sx={{ ml: 2 }}
+                    />
+                  )}
+                </Typography>
                 
-                <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                {/* Risk Scores Table */}
+                <Box sx={{ overflow: 'auto', mb: 4 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f5f5f5' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Transaction ID</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Risk Score</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Risk Reasons</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {riskScores.map((item, index) => (
+                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px' }}>{item.transaction_id}</td>
+                          <td style={{ padding: '12px' }}>
+                            <Box sx={{ 
+                              width: '100%', 
+                              bgcolor: '#e0e0e0', 
+                              borderRadius: 1,
+                              overflow: 'hidden'
+                            }}>
+                              <Box sx={{ 
+                                width: `${Math.min(item.risk_score * 100, 100)}%`,
+                                bgcolor: getRiskColor(item.risk_score),
+                                height: '24px',
+                                textAlign: 'center',
+                                color: 'white',
+                                fontSize: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                {item.risk_score.toFixed(2)}
+                              </Box>
+                            </Box>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            {item.risk_reasons?.length ? item.risk_reasons.join(', ') : 'None'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Box>
+                
+                <Typography variant="h6" gutterBottom>
                   Remediation Actions
-                  <Chip 
-                    label="Sample Data" 
-                    color="info" 
-                    variant="outlined"
-                    size="small"
-                    sx={{ ml: 2 }}
-                  />
                 </Typography>
                 <List dense>
                   {remediationActions.map((action, index) => (
@@ -509,10 +842,10 @@ const RegulatoryProfilingUI = () => {
                         secondary={
                           <>
                             <Box component="span" sx={{ display: 'block' }}>
-                              <strong>Issues:</strong> {action.issues.join(', ')}
+                              <strong>Actions:</strong> {action.actions?.length ? action.actions.join(', ') : 'No actions required'}
                             </Box>
                             <Box component="span" sx={{ display: 'block' }}>
-                              <strong>Actions:</strong> {action.actions.join(', ')}
+                              <strong>Documentation:</strong> {action.documentation_required ? 'Required' : 'Not required'}
                             </Box>
                           </>
                         }
@@ -528,7 +861,9 @@ const RegulatoryProfilingUI = () => {
             )}
             
             <Alert severity="info">
-              This panel shows sample anomaly detection results. Process your regulations to see real validation results.
+              {transactionFile 
+                ? 'Showing validation results for uploaded data'
+                : 'This panel shows sample anomaly detection results. Process your regulations to see real validation results.'}
             </Alert>
           </Paper>
         )}
@@ -579,7 +914,7 @@ const RegulatoryProfilingUI = () => {
 
         {activeTab === 'assistant' && (
           <Paper sx={{ p: 3, height: '70vh', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" gutterBottom>Compliance Assistant</Typography>
+            <Typography variant="h5" gutterBottom>Compliance Assistant (Future Enhancement)</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               Refine profiling rules through conversational interface
             </Typography>

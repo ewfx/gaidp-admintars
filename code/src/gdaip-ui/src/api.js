@@ -38,6 +38,7 @@ export const validateData = async (rules, data) => {
     },
     body: JSON.stringify({ rules, data })
   });
+  console.log("response", JSON.stringify({ rules, data }));
   
   if (!response.ok) {
     throw new Error('Data validation failed');

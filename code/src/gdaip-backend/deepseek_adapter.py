@@ -8,7 +8,7 @@ class DeepSeekAdapter:
         self.last_call_time = 0
         self.min_call_interval = 1  # seconds between calls
         
-    def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+    def generate(self, prompt: str, **kwargs) -> str:
         """Send prompt to DeepSeek via OpenRouter API"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -20,8 +20,8 @@ class DeepSeekAdapter:
         payload = {
             "model": "deepseek/deepseek-chat-v3-0324:free",  # Full model name for OpenRouter
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
+            "max_tokens": 3000,
+            "temperature": 0.7,
             "frequency_penalty": 0,
             "presence_penalty": 0
         }
@@ -31,7 +31,7 @@ class DeepSeekAdapter:
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=30  # Add timeout
+                timeout=45  # Add timeout
             )
             
             # Check for HTTP errors

@@ -1,0 +1,4 @@
+BHC_NAME,RSSD_ID,REPORTING_MONTH,PORTFOLIO_ID,SEGMENT_ID,# Accounts,$ Outstandings,# New accounts,$ New accounts,$ Vehicle type car/van,$ Vehicle type SUV/truck,$ Vehicle type sport/luxury/convertible,$ Vehicle type unknown,$ Repossession,$ Current month repossession,$ Gross contractual charge-offs,$ Bankruptcy charge-offs,$ Recoveries,$ Net charge-offs,PD,LGD,ELGD,RWA,WAL
+"XYZ Bank",123456,2025-03,"IntAuto","01010101",250,15.2,50,3.5,8.2,5.4,1.6,0.0,0.2,0.05,0.08,0.02,0.03,0.07,0.02,0.65,0.85,120.5,36
+"ABC Finance",789012,2025-03,"IntAuto","02020302",180,10.8,35,2.1,4.3,4.7,1.2,0.6,0.1,0.02,0.05,0.01,0.02,0.04,0.03,0.60,0.80,95.3,28
+"PQR Bank",345678,2025-03,"IntAuto","03040604",300,20.5,75,4.7,10.5,6.0,2.3,1.7,0.5,0.1,0.12,0.04,0.06,0.09,0.01,0.70,0.90,150.8,42

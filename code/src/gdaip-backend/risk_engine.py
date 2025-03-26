@@ -1,5 +1,6 @@
 from typing import Dict, List
 import pandas as pd
+import numpy as np
 
 class RiskEngine:
     def __init__(self):
@@ -23,7 +24,6 @@ class RiskEngine:
         self.high_risk_countries = ['DE', 'US', 'UK']  # Example list
     
     def calculate_risk_scores(self, transactions: pd.DataFrame) -> pd.DataFrame:
-        """Calculate risk scores for transactions"""
         transactions['risk_score'] = 0.0
         transactions['risk_reasons'] = ""
         
@@ -42,7 +42,11 @@ class RiskEngine:
                 except:
                     continue
             
+            # Ensure score is a valid number
+            if not np.isfinite(score):
+                score = 0.0
+            
             transactions.at[transaction.name, 'risk_score'] = score
-            transactions.at[transaction.name, 'risk_reasons'] = "; ".join(reasons)
+            transactions.at[transaction.name, 'risk_reasons'] = "; ".join(reasons) or "No risk factors detected"
         
         return transactions

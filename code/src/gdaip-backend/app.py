@@ -31,7 +31,7 @@ app.add_middleware(
 )
 
 # Configuration
-DEEPSEEK_API_KEY = "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"
+DEEPSEEK_API_KEY = "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"
 
 # Initialize components with DeepSeek
 doc_processor = DocumentProcessor(DEEPSEEK_API_KEY)
@@ -74,48 +74,21 @@ async def process_regulations(request: ProcessRequest):
 @app.post("/api/validate")
 async def validate_data(request: ValidationRequest):
     try:
-        # Convert input data to DataFrame whether it comes from file or direct JSON
-        if isinstance(request.data, list):
-            data = pd.DataFrame(request.data)
-        else:
-            # Handle case where data might already be in DataFrame format
-            data = request.data
-            
-        validator = DataValidator()
-        results = validator.validate_transactions(data, request.rules)
+        validator = DataValidator(DEEPSEEK_API_KEY)  # Pass API key
+        
+        # Convert data to list if it's not already
+        data = request.data if isinstance(request.data, list) else [request.data]
+        
+        # Get LLM-powered validation results
+        results = await validator.validate_transactions(data, request.rules)
+        
+        # Convert risk assessment to DataFrame for consistency
+        risk_df = pd.DataFrame(results['risk_assessment']).fillna(0)
         
         return {
             "validation_results": results["validation_results"],
-            "risk_assessment": results["risk_assessment"].to_dict('records'),
+            "risk_assessment": risk_df.to_dict('records'),
             "remediation_actions": results["remediation_actions"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    try:
-        validator = DataValidator()
-        
-        # Convert input data to DataFrame
-        data = pd.DataFrame(request.data)
-        print("In app.py - validate")
-        
-        # Perform validation
-        results = validator.validate_transactions(data, request.rules)
-
-        print(f"Validate transcations result - {results}")
-        
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    try:
-        df = pd.DataFrame(request.data)
-        validated_data, results = validator.validate_transactions(df, request.rules)
-        risk_assessed = risk_engine.calculate_risk_scores(validated_data)
-        remediations = remediation_engine.generate_remediation_actions(results)
-        
-        return {
-            "validation_results": results,
-            "risk_assessment": risk_assessed.to_dict(orient='records'),
-            "remediation_actions": remediations
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -166,13 +139,16 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/api/upload-transactions")
 async def upload_transactions(file: UploadFile = File(...)):
     try:
-        # Read file based on extension
+        # Read file based on extension with dtype=str to preserve formatting
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(file.file)
+            df = pd.read_csv(file.file, dtype=str, keep_default_na=False)
         elif file.filename.endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(file.file)
+            df = pd.read_excel(file.file, dtype=str, keep_default_na=False)
         else:
             raise HTTPException(status_code=400, detail="Unsupported file format")
+        
+        # Convert empty strings back to None if needed
+        df = df.replace('', None)
         
         # Convert to list of dicts
         transactions = df.to_dict('records')
