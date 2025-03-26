@@ -56,9 +56,26 @@ The financial industry is governed by complex regulations. Ensuring compliance w
 
 UI:
 
-
-
-
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/ewfx/gaidp-admintars.git
+   cd gaidp-admintars
+   ```
+2. Create a virtual environment and activate it:
+   ```sh
+   python -m venv venv
+   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+   ```
+3. Install dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```
+4. Place the regulatory PDF file and transactional dataset in the input directory.
+5. Run the main script:
+   ```sh
+   python main.py
+   ```
+6. View extracted rules in JSON format and validation reports in the output directory.
 
 Backend APIs:
 
