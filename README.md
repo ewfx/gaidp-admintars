@@ -37,11 +37,9 @@ The financial industry is governed by complex regulations. Ensuring compliance w
 ## 🛠 How We Built It
 
 - Utilized **DeepSeek LLM API** for rule extraction
-- Used **PyPDF2 library** for processing structured table data and unstructured text data from PDFs
-- Processed data in two formats: **normal text** and **tabular data**
-- Structured tabular data, split it into chunks, and prepared it for DeepSeek API
-- Created a user prompt for DeepSeek API to extract and list rules and regulations from the text document
-- Implemented **Python** for data processing
+- Used **PyPDF2 library** for processing structured table data and unstructured text data from PDFs and then switched to Pandas to extract data.
+- Sent the processed data to **DeepSeek** model to extract structured data rules along with a specific prompt.
+- Passed the generated rules along with sample transactional data back to **DeepSeek** API to validate.
 - Used **JSON** for structured rule representation
 - &#x20;Created a user prompt for DeepSeek API to detect anomalies in the transactional dataset using the extracted rules
 
@@ -49,8 +47,10 @@ The financial industry is governed by complex regulations. Ensuring compliance w
 
 - Determining a suitable library to extract both text and tabular data from PDFs
 - Structuring the prompt effectively to get accurate rule extraction
+- Integration of UI and Backend.
 - Handling API limitations as we used a free-tier DeepSeek API, leading to restrictions on the number of chunks sent
 - Managing performance trade-offs between sending more chunks for accuracy and increased processing time
+- Handling and streamlinig the response returned by AI Model as it was different in different cases.
 
 ## ▶️ How to Run
 
