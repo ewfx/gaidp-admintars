@@ -42,6 +42,8 @@ The financial industry is governed by complex regulations. Ensuring compliance w
 - Passed the generated rules along with sample transactional data back to **DeepSeek** API to validate.
 - Used **JSON** for structured rule representation
 - &#x20;Created a user prompt for DeepSeek API to detect anomalies in the transactional dataset using the extracted rules
+- Used API keys generated from https://openrouter.ai/
+- **NOTE: API Keys might expire after a specific period of time/no.of requests. Generate new api key if you are getting 401 error**
 
 ## 🚧 Challenges We Faced
 
